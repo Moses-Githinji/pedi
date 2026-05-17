@@ -1,0 +1,109 @@
+[ignoring loop detection]
+Profile_Screen: Fetch user information, all information from the backend. That is, profile info, and as for the liked or saved posts, fetch them and if none exist, show the relevant UI/UX for this.
+
+Notifications_Screen: Remove the notifications navigation from the bottom tab, and let them be accessible as a scrollable bottom sheet which is accessible via a bell icon in the profile screen, and if there are any notifications, show a red dot in the profile screen's navigation tab.
+
+Upload_Screen: Work on the full functionality for uploading videos, plus any information related to the videos, including the location information with which the map component works.
+
+Explore_Screen: Shown in the bottom tab navigation as a search icon, let's implement it similr to how Instagram's explore screen is, with different widths, and heights to individual results in this screen. Also, below the search bar input, show five, randomly selected rounded and with avatar images, accounts the logged in user follows to enable them to easily navigate to the said person's profile.
+
+Feed_Screen: The loggedin user should be able to follow the creator of the post they are currently viewing, and if they are currently following them, show a rounded, white background, and green in color tick, in place of the plus icon. Also, when the user clicks on the heart icon, I want them to be shown a smaller container with emojis for anger, happiness, laughter, awkwardness, or you can use Facebook's implementation on the same, so the user is able to choose from the available options, what they are feeling. Also, the user should be able to click on the comment icon, where they should be able to read through comments, react to them, or even create their own comments for these videos. Do away with the repost feature plus its icon for now. And finally, for the map, we shall use the mapbox_maps_flutter package to display additional information to the map view.
+
+Splash_Screen: That screen is called a Splash Screen (sometimes referred to as a launch screen).
+
+Its primary purpose is to give the user immediate visual feedback that the app is loading while the underlying operating system initializes the application process, sets up memory, and boots the Flutter engine.
+
+How Splash Screens Work in Flutter
+To build a splash screen correctly, you have to understand a structural quirk about mobile apps. A splash screen actually exists in two distinct phases:
+
+The Native Phase: The absolute first thing the user sees. This is managed entirely by Android (via Java/Kotlin) or iOS (via Swift/Objective-C). It displays before a single line of your Dart/Flutter code even loads into memory.
+
+The Flutter Phase (Optional): Once the Flutter engine initializes, it takes over the screen. If your app needs to load data from an API or a local database before showing the main UI, you stay on a matching Dart-coded loading screen.
+
+If you don't configure the Native Phase, the user will just stare at a jarring, blank white or black screen for a couple of seconds while the engine warms up.
+
+The Easiest Way to Implement it: flutter_native_splash
+Instead of digging into complex native Android XML style files and iOS Storyboards manually, the Flutter community created a package called flutter_native_splash. It automatically generates all the native asset sizes and theme configurations for you using a simple configuration block.
+
+Here is how to set it up step-by-step:
+
+Step 1: Add the Dependency
+Open your pubspec.yaml file and add the package under your dev_dependencies (since it's a tool used during development to generate files):
+
+YAML
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  
+  # Add this line right here:
+  flutter_native_splash: ^2.4.4
+
+Step 2: Configure the Splash Screen Design
+In the exact same pubspec.yaml file, scroll all the way to the very bottom (outside of the dependencies or flutter blocks) and define your splash configurations:
+
+YAML
+flutter_native_splash:
+  color: "#121212" # The background color of your splash screen (e.g., dark theme)
+  image: assets/images/splash_logo.png # Path to your logo asset
+  
+  # Optional Android 12+ configurations
+  android_12:
+    color: "#121212"
+    image: assets/images/splash_logo_android12.png # Android 12 requires a specific circular icon vector
+(Make sure your image asset path is valid and the file actually exists in your project directory).
+
+Step 3: Run the Generator Command
+Open your terminal and tell the package to read your configurations and inject the native assets directly into your android/ and ios/ source folders.
+
+Run this command:
+
+Bash
+flutter pub run flutter_native_splash:create
+
+How to Hold the Splash Screen for Initialization (Dart Phase)
+By default, the native splash screen will automatically vanish the exact millisecond Flutter draws its very first frame. If your app needs to do backend work first—like checking if a user is logged in via Firebase or fetching a Mapbox token—the screen will flash away too quickly.
+
+You can preserve the native splash screen programmatically until your initialization logic completes:
+
+Dart
+import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+
+void main() async {
+  // 1. Secure the widget binding framework setup
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  
+  // 2. Instruct the OS to lock the native splash screen in place
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
+
+  // 3. Perform your asynchronous initialization tasks
+  await initializeDatabaseAndFirebase();
+
+  // 4. Initialization complete! Dismiss the native splash screen smoothly
+  FlutterNativeSplash.remove();
+  
+  runApp(const MyApp());
+}
+
+Future<void> initializeDatabaseAndFirebase() async {
+  // Simulate checking your Firebase auth state or caching configurations
+  await Future.delayed(const Duration(seconds: 2));
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text("Welcome to Pedi Main Screen!")),
+      ),
+    );
+  }
+}
+
+If you ever want to alter your background color or change your logo design later, you just update the values in your pubspec.yaml configuration block and execute the flutter pub run flutter_native_splash:create terminal command again to refresh the native compilation layers!
+
+Video_Feature_Investigation: Investigate why the video feature is not working as expected in the feed and throughout the application, and fix any related playing, buffering, audio, or loading issues.

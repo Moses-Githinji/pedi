@@ -1,0 +1,3 @@
+-keep class com.google.android.gms.auth.api.identity.** { *; }
+-keep class com.google.android.gms.common.internal.safeparcel.** { *; }
+-dontwarn com.google.android.gms.auth.api.identity.**

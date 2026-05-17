@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "847505776831",
+    "project_id": "pedi-6ba5b",
+    "storage_bucket": "pedi-6ba5b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:847505776831:android:9d167ecea7291f9578a60a",
+        "android_client_info": {
+          "package_name": "com.pedi.app.pedi"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "847505776831-gotmivk857evjqjs4dk0atjfgf5m7uue.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.pedi.app.pedi",
+            "certificate_hash": "2d3b944d4c75c54eb86f8170e04180ab8b4ef72f"
+          }
+        },
+        {
+          "client_id": "847505776831-09pvrec5k6uan1asvbijfkbec0uh04cm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBpO3ArpVdriUrkye57-fN4z0NJ8ncznIc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "847505776831-09pvrec5k6uan1asvbijfkbec0uh04cm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "847505776831-k6k8vm86ec9h677l5bli6mojc2qtcdu7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.pedi.app.pedi"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
