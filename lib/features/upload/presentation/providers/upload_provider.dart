@@ -80,4 +80,11 @@ class UploadService {
 }
 
 final uploadServiceProvider = Provider((ref) => UploadService());
-final uploadProgressProvider = StateProvider<double>((ref) => 0.0);
+
+class UploadProgressNotifier extends Notifier<double> {
+  @override
+  double build() => 0.0;
+  void set(double value) => state = value;
+}
+
+final uploadProgressProvider = NotifierProvider<UploadProgressNotifier, double>(UploadProgressNotifier.new);

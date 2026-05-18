@@ -20,13 +20,8 @@ class AuthService {
       final googleSignIn = gsi.GoogleSignIn.instance;
 
       // Trigger sign-in
-      final gsi.GoogleSignInAccount? googleUser = await googleSignIn
+      final googleUser = await googleSignIn
           .authenticate();
-
-      if (googleUser == null) {
-        logger.i('Google Sign-In canceled by user.');
-        return null;
-      }
 
       // Get authentication tokens
       final gsi.GoogleSignInAuthentication googleAuth =
