@@ -1,31 +1,31 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
     id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.pedi.app.pedi"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
 
+    // ── Fix JVM Compatibility ─────────────────────────────────────
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
+        jvmTarget = "11"
     }
 
     // Fix for dependency version conflicts
     configurations.all {
         resolutionStrategy {
             force("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+            force("androidx.core:core:1.15.0")
+            force("androidx.core:core-ktx:1.15.0")
         }
     }
 
@@ -45,8 +45,6 @@ android {
         }
         debug {
             signingConfig = signingConfigs.getByName("debug")
-            // Force Proguard rules to apply even in debug mode if needed:
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }
@@ -56,16 +54,14 @@ flutter {
 }
 
 dependencies {
-    // Import the Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:34.13.0"))
+    // Firebase BoM
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))  // Slightly older but more stable
 
-    // Firebase dependencies
     implementation("com.google.firebase:firebase-analytics")
-    implementation("com.google.firebase:firebase-auth")           // Recommended when using Google Sign-In
+    implementation("com.google.firebase:firebase-auth")
 
-    // Google Sign-In + Credential Manager (required for v7+)
+    // Google Sign-In & Credential Manager
     implementation("com.google.android.gms:play-services-auth:21.3.0")
-    
     implementation("androidx.credentials:credentials:1.5.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
