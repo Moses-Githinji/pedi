@@ -52,6 +52,8 @@ class UploadService {
     required String title,
     required String description,
     required String location,
+    double? latitude,
+    double? longitude,
     required List<String> tags,
   }) async {
     try {
@@ -66,6 +68,8 @@ class UploadService {
         title: title,
         description: description,
         location: location,
+        latitude: latitude,
+        longitude: longitude,
         tags: tags,
         createdAt: DateTime.now(),
       );

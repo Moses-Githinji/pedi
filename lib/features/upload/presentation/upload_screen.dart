@@ -1,14 +1,17 @@
 import 'dart:io';
 import 'dart:ui';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../profile/presentation/providers/profile_provider.dart';
 import 'providers/upload_provider.dart';
+import 'providers/places_service.dart';
 
 class UploadScreen extends ConsumerStatefulWidget {
   const UploadScreen({super.key});
@@ -27,6 +30,8 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   final _formKey = GlobalKey<FormState>();
 
   String _location = '';
+  double? _latitude;
+  double? _longitude;
   final List<String> _tags = [];
   bool _isPublishing = false;
 
@@ -135,6 +140,8 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim(),
             location: _location.isNotEmpty ? _location : 'Universal',
+            latitude: _latitude,
+            longitude: _longitude,
             tags: _tags,
           );
 
@@ -156,6 +163,8 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
           _videoFile = null;
           _isInitialized = false;
           _location = '';
+          _latitude = null;
+          _longitude = null;
           _tags.clear();
         });
 
@@ -180,89 +189,274 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     }
   }
 
-  /// Show premium Location input popup with presets (Veenstra concept)
+  /// Show premium Location input popup with Google Places Autocomplete search
   void _showLocationDialog() {
-    final controller = TextEditingController(text: _location);
-    final presets = ['Nairobi, Kenya', 'New York, USA', 'London, UK', 'Tokyo, Japan', 'Cape Town, SA'];
+    final searchController = TextEditingController(text: _location);
+    final String sessionToken = const Uuid().v4();
+    final placesService = GooglePlacesService();
+
+    final presetCoords = {
+      'Nairobi, Kenya': {'lat': -1.2921, 'lng': 36.8219},
+      'New York, USA': {'lat': 40.7128, 'lng': -74.0060},
+      'London, UK': {'lat': 51.5074, 'lng': -0.1278},
+      'Tokyo, Japan': {'lat': 35.6762, 'lng': 139.6503},
+      'Cape Town, SA': {'lat': -33.9249, 'lng': 18.4241},
+    };
+    final presets = presetCoords.keys.toList();
+
+    List<Map<String, dynamic>> predictions = [];
+    bool isSearching = false;
+    bool isDetailsLoading = false;
+    Timer? debounceTimer;
 
     showDialog(
       context: context,
       builder: (context) => BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-        child: AlertDialog(
-          backgroundColor: Colors.grey[950]!.withValues(alpha: 0.85),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          title: const Text('Add Location', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  hintText: 'Enter custom location...',
-                  hintStyle: const TextStyle(color: Colors.white30),
-                  filled: true,
-                  fillColor: Colors.black.withValues(alpha: 0.3),
-                  prefixIcon: const Icon(Icons.location_on, color: Colors.blueAccent),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: BorderSide.none,
-                  ),
+        child: StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF0D0F16).withValues(alpha: 0.9),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              title: const Text(
+                'Add Location',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
+              content: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isDetailsLoading
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 24.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                            ),
+                            SizedBox(height: 16),
+                            Text(
+                              'Resolving precise coordinates...',
+                              style: TextStyle(color: Colors.white70, fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: searchController,
+                            autofocus: true,
+                            style: const TextStyle(color: Colors.white),
+                            onChanged: (val) {
+                              if (debounceTimer?.isActive ?? false) {
+                                debounceTimer?.cancel();
+                              }
+                              debounceTimer = Timer(const Duration(milliseconds: 350), () async {
+                                if (val.trim().isEmpty) {
+                                  setDialogState(() {
+                                    predictions = [];
+                                    isSearching = false;
+                                  });
+                                  return;
+                                }
+
+                                setDialogState(() {
+                                  isSearching = true;
+                                });
+
+                                final results = await placesService.fetchSuggestions(
+                                  input: val.trim(),
+                                  sessionToken: sessionToken,
+                                );
+
+                                setDialogState(() {
+                                  predictions = results;
+                                  isSearching = false;
+                                });
+                              });
+                            },
+                            decoration: InputDecoration(
+                              hintText: 'Search place, region or establishment...',
+                              hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+                              filled: true,
+                              fillColor: Colors.black.withValues(alpha: 0.3),
+                              prefixIcon: const Icon(Icons.search, color: Colors.blueAccent, size: 20),
+                              suffixIcon: searchController.text.isNotEmpty
+                                  ? GestureDetector(
+                                      onTap: () {
+                                        searchController.clear();
+                                        setDialogState(() {
+                                          predictions = [];
+                                        });
+                                      },
+                                      child: const Icon(Icons.clear, color: Colors.white54, size: 16),
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                            ),
+                          ),
+                          
+                          // Autocomplete Search Results
+                          if (isSearching) ...[
+                            const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20.0),
+                              child: Center(
+                                child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ] else if (predictions.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            Container(
+                              constraints: const BoxConstraints(maxHeight: 180),
+                              decoration: BoxDecoration(
+                                color: Colors.black26,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                              ),
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                padding: EdgeInsets.zero,
+                                itemCount: predictions.length,
+                                separatorBuilder: (context, index) => Divider(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  height: 1,
+                                ),
+                                itemBuilder: (context, index) {
+                                  final p = predictions[index];
+                                  return ListTile(
+                                    dense: true,
+                                    visualDensity: VisualDensity.compact,
+                                    leading: const Icon(Icons.location_on, color: Colors.blueAccent, size: 16),
+                                    title: Text(
+                                      p['mainText'] ?? '',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                    subtitle: Text(
+                                      p['secondaryText'] ?? '',
+                                      style: const TextStyle(color: Colors.white54, fontSize: 11),
+                                    ),
+                                    onTap: () async {
+                                      setDialogState(() {
+                                        isDetailsLoading = true;
+                                      });
+
+                                      final coords = await placesService.fetchPlaceCoordinates(
+                                        placeId: p['placeId'] ?? '',
+                                        sessionToken: sessionToken,
+                                      );
+
+                                      if (coords != null) {
+                                        setState(() {
+                                          _location = p['description'] ?? '';
+                                          _latitude = coords['lat'];
+                                          _longitude = coords['lng'];
+                                        });
+                                      } else {
+                                        setState(() {
+                                          _location = p['description'] ?? '';
+                                          _latitude = null;
+                                          _longitude = null;
+                                        });
+                                      }
+
+                                      if (context.mounted) {
+                                        Navigator.pop(context);
+                                      }
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
+
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Popular Presets:',
+                            style: TextStyle(color: Colors.white54, fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: presets.map((preset) {
+                              return GestureDetector(
+                                onTap: () {
+                                  final coords = presetCoords[preset];
+                                  setState(() {
+                                    _location = preset;
+                                    if (coords != null) {
+                                      _latitude = coords['lat'];
+                                      _longitude = coords['lng'];
+                                    } else {
+                                      _latitude = null;
+                                      _longitude = null;
+                                    }
+                                  });
+                                  Navigator.pop(context);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                                  ),
+                                  child: Text(
+                                    preset,
+                                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    if (debounceTimer?.isActive ?? false) {
+                      debounceTimer?.cancel();
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text('Popular Presets:', style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: presets.map((preset) {
-                  return GestureDetector(
-                    onTap: () {
-                      controller.text = preset;
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                      ),
-                      child: Text(
-                        preset,
-                        style: const TextStyle(color: Colors.white70, fontSize: 12),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                setState(() {
-                  _location = controller.text.trim();
-                });
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blueAccent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              child: const Text('Confirm', style: TextStyle(color: Colors.white)),
-            ),
-          ],
+                ElevatedButton(
+                  onPressed: () {
+                    if (debounceTimer?.isActive ?? false) {
+                      debounceTimer?.cancel();
+                    }
+                    setState(() {
+                      _location = searchController.text.trim();
+                    });
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
