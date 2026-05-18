@@ -36,6 +36,8 @@ dependencies:
   uuid: ^4.3.3
   url_launcher: ^6.3.0
 
+  google_places_api_flutter: ^1.0.0
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
