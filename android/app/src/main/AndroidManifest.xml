@@ -3,6 +3,18 @@
         android:label="pedi"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
+        <!-- Disable Credential Manager to prevent assisted sign-in UI crash (width/height <= 0) on some devices -->
+        <meta-data 
+            android:name="com.google.android.gms.credentials.API_ENABLED" 
+            android:value="false" />
+        <meta-data 
+            android:name="com.google.android.gms.credentials.CredentialPickerConfig" 
+            android:value="false" />
+        <meta-data 
+            android:name="androidx.credentials.CREDENTIAL_SERVICE_ENABLED" 
+            android:value="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

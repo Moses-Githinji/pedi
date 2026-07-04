@@ -122,7 +122,8 @@ class _FeedListState extends State<_FeedList> {
       'tags': ['techno', 'party', 'underground'],
     },
     {
-      'imageUrl': 'https://media.w3.org/2010/05/sintel/trailer.mp4',
+      'imageUrl':
+          'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
       'mediaType': 'video',
       'title': 'Indie Rock Festival',
       'description': 'Three days of non-stop indie rock from upcoming bands.',
@@ -131,7 +132,7 @@ class _FeedListState extends State<_FeedList> {
     },
     {
       'imageUrl':
-          'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
+          'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       'mediaType': 'video',
       'title': 'Rooftop Sunset Lounge',
       'description':
@@ -166,6 +167,7 @@ class _FeedListState extends State<_FeedList> {
           tags: List<String>.from(gem['tags']),
           mediaType: gem['mediaType'],
           isActive: index == _currentIndex,
+          isPreload: (index - _currentIndex).abs() <= 1,
         );
       },
     );

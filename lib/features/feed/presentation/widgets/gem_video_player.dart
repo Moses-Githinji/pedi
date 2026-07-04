@@ -1,111 +1,133 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../home/presentation/main_layout.dart';
 
-class GemVideoPlayer extends StatefulWidget {
+class GemVideoPlayer extends ConsumerStatefulWidget {
   final String videoUrl;
   final bool isActive;
+  final bool isPreload;
 
   const GemVideoPlayer({
     super.key,
     required this.videoUrl,
     required this.isActive,
+    required this.isPreload,
   });
 
   @override
-  State<GemVideoPlayer> createState() => _GemVideoPlayerState();
+  ConsumerState<GemVideoPlayer> createState() => _GemVideoPlayerState();
 }
 
-class _GemVideoPlayerState extends State<GemVideoPlayer> {
-  VideoPlayerController? _controller; // Made nullable to safely cycle controllers
-  bool _isInitialized = false;
+class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
+  Player? _player;
+  VideoController? _videoController;
   bool _isMuted = true;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _initializePlayer();
+    if (widget.isPreload) {
+      _initializePlayer();
+    }
   }
 
   void _initializePlayer() {
-    _errorMessage = null;
-    _isInitialized = false;
-    
-    _controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
-    
-    _controller!.initialize().then((_) {
-      if (!mounted) return;
-      
-      setState(() {
-        _isInitialized = true;
-      });
-      
-      _controller!.setLooping(true);
-      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
-      
-      if (widget.isActive) {
-        _controller!.play();
-      }
-    }).catchError((error) {
+    if (_player != null) return;
+
+    final player = Player();
+    final controller = VideoController(player);
+
+    _player = player;
+    _videoController = controller;
+
+    // Listen to errors
+    player.stream.error.listen((error) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = "Failed to load video";
+        _errorMessage = "Playback error occurred";
       });
     });
+
+    // Configure loop and mute
+    player.setPlaylistMode(PlaylistMode.loop);
+    player.setVolume(_isMuted ? 0.0 : 100.0);
+
+    // Open stream and pause/play based on active state
+    player.open(
+      Media(widget.videoUrl),
+      play: widget.isActive && ref.read(navigationIndexProvider) == 0,
+    );
+  }
+
+  void _disposePlayer() {
+    if (_player != null) {
+      final playerToDispose = _player!;
+      _player = null;
+      _videoController = null;
+      playerToDispose.dispose();
+    }
   }
 
   @override
   void didUpdateWidget(GemVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    // Safety check: if url changed, re-initialize completely
-    if (oldWidget.videoUrl != widget.videoUrl) {
-      _controller?.dispose();
-      _initializePlayer();
-      return;
-    }
 
-    if (_controller == null || !_isInitialized) return;
+    final navigationIndex = ref.read(navigationIndexProvider);
+    final shouldBePlaying = widget.isActive && (navigationIndex == 0);
 
-    if (oldWidget.isActive != widget.isActive) {
-      if (widget.isActive) {
-        _controller!.play();
+    // Proximity management
+    if (widget.isPreload) {
+      if (_player == null) {
+        _initializePlayer();
       } else {
-        _controller!.pause();
-        _controller!.seekTo(Duration.zero);
+        // Toggle play/pause based on active changes
+        if (shouldBePlaying) {
+          _player?.play();
+        } else {
+          _player?.pause();
+        }
       }
+    } else {
+      // Discard player when moving far away
+      _disposePlayer();
     }
   }
 
   @override
   void dispose() {
-    // Explicitly pause before discarding memory allocation pointers
-    _controller?.pause();
-    _controller?.dispose();
+    _disposePlayer();
     super.dispose();
   }
 
   void _togglePlayPause() {
-    if (_controller == null || !_isInitialized) return;
-    setState(() {
-      if (_controller!.value.isPlaying) {
-        _controller!.pause();
-      } else {
-        _controller!.play();
-      }
-    });
+    _player?.playOrPause();
   }
 
   void _toggleMute() {
-    if (_controller == null || !_isInitialized) return;
     setState(() {
       _isMuted = !_isMuted;
-      _controller!.setVolume(_isMuted ? 0.0 : 1.0);
+      _player?.setVolume(_isMuted ? 0.0 : 100.0);
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // If navigation index changes, didUpdateWidget won't automatically trigger,
+    // so we watch it here to play/pause.
+    final navigationIndex = ref.watch(navigationIndexProvider);
+    final shouldBePlaying = widget.isActive && (navigationIndex == 0);
+
+    if (_player != null) {
+      if (shouldBePlaying) {
+        _player?.play();
+      } else {
+        _player?.pause();
+      }
+    }
+
     if (_errorMessage != null) {
       return Container(
         color: Colors.black,
@@ -118,7 +140,7 @@ class _GemVideoPlayerState extends State<GemVideoPlayer> {
       );
     }
 
-    if (!_isInitialized || _controller == null) {
+    if (_videoController == null || _player == null) {
       return Container(
         color: Colors.black,
         child: const Center(
@@ -132,24 +154,12 @@ class _GemVideoPlayerState extends State<GemVideoPlayer> {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          FittedBox(
+          Video(
+            controller: _videoController!,
             fit: BoxFit.cover,
-            child: SizedBox(
-              width: _controller!.value.size.width,
-              height: _controller!.value.size.height,
-              child: VideoPlayer(_controller!),
-            ),
           ),
-          if (!_controller!.value.isPlaying)
-            const Center(
-              child: Icon(
-                Icons.play_circle_fill,
-                size: 80,
-                color: Colors.white54,
-              ),
-            ),
           Positioned(
-            top: 40, // Lowered from 100 to make it accessible inside viewports
+            top: 40,
             right: 16,
             child: GestureDetector(
               onTap: _toggleMute,

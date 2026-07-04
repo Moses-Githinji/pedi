@@ -13,6 +13,7 @@ class GemCard extends StatelessWidget {
   final List<String> tags;
   final String mediaType;
   final bool isActive;
+  final bool isPreload;
 
   const GemCard({
     super.key,
@@ -25,6 +26,7 @@ class GemCard extends StatelessWidget {
     required this.tags,
     this.mediaType = 'image',
     this.isActive = false,
+    this.isPreload = false,
   });
 
   @override
@@ -37,6 +39,7 @@ class GemCard extends StatelessWidget {
           GemVideoPlayer(
             videoUrl: imageUrl,
             isActive: isActive,
+            isPreload: isPreload,
           )
         else
           CachedNetworkImage(
