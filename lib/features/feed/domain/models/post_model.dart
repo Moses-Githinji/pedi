@@ -9,9 +9,6 @@ class PostModel {
   final String thumbnailUrl;
   final String title;
   final String description;
-  final String location;
-  final double? latitude;
-  final double? longitude;
   final List<String> tags;
   final int likesCount;
   final int commentsCount;
@@ -26,9 +23,6 @@ class PostModel {
     required this.thumbnailUrl,
     required this.title,
     required this.description,
-    required this.location,
-    this.latitude,
-    this.longitude,
     required this.tags,
     this.likesCount = 0,
     this.commentsCount = 0,
@@ -46,9 +40,6 @@ class PostModel {
       thumbnailUrl: data['thumbnailUrl'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
-      location: data['location'] ?? '',
-      latitude: (data['latitude'] as num?)?.toDouble(),
-      longitude: (data['longitude'] as num?)?.toDouble(),
       tags: List<String>.from(data['tags'] ?? []),
       likesCount: data['likesCount'] ?? 0,
       commentsCount: data['commentsCount'] ?? 0,
@@ -65,9 +56,6 @@ class PostModel {
       'thumbnailUrl': thumbnailUrl,
       'title': title,
       'description': description,
-      'location': location,
-      'latitude': latitude,
-      'longitude': longitude,
       'tags': tags,
       'likesCount': likesCount,
       'commentsCount': commentsCount,

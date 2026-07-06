@@ -78,7 +78,6 @@ class _ExploreDetailScreenState extends ConsumerState<ExploreDetailScreen> {
                     imageUrl: post.videoUrl, // All current backend posts are videos
                     title: post.title,
                     description: post.description,
-                    location: post.location,
                     tags: post.tags,
                     mediaType: 'video',
                     isActive: isItemActive,

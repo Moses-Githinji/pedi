@@ -1,14 +1,12 @@
 import 'dart:io';
 import 'dart:ui';
 import 'dart:async';
-import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
-import 'package:google_places_api_flutter/google_places_api_flutter.dart';
 // import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../auth/presentation/providers/auth_provider.dart';
@@ -32,9 +30,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
   final _descriptionController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  String _location = '';
-  double? _latitude;
-  double? _longitude;
   final List<String> _tags = [];
   bool _isPublishing = false;
 
@@ -168,9 +163,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
             videoUrl: videoUrl,
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim(),
-            location: _location.isNotEmpty ? _location : 'Universal',
-            latitude: _latitude,
-            longitude: _longitude,
             tags: _tags,
           );
 
@@ -194,9 +186,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         setState(() {
           _videoFile = null;
           _isInitialized = false;
-          _location = '';
-          _latitude = null;
-          _longitude = null;
           _tags.clear();
         });
 
@@ -222,177 +211,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         });
       }
     }
-  }
-
-  /// Show premium Location bottom sheet (75% height) using google_places_api_flutter
-  void _showLocationBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          height: MediaQuery.of(context).size.height * 0.75,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D0F16).withValues(alpha: 0.98),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Grab Handle Indicator
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  margin: const EdgeInsets.only(top: 12, bottom: 20),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2.5),
-                  ),
-                ),
-              ),
-
-              // Header Title
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: Colors.blueAccent,
-                          size: 22,
-                        ),
-                        SizedBox(width: 8),
-                        Text(
-                          'Add Location',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white54,
-                        size: 20,
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 12),
-
-              // Search Field using google_places_api_flutter
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        PlaceSearchField(
-                          apiKey: const String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: ''),
-                          isLatLongRequired: true,
-                          onPlaceSelected: (prediction, placeDetailsModel) async {
-                            log('Place ID: ${prediction.place_id}');
-                            log('Description: ${prediction.description}');
-                            log(
-                              'Latitude and Longitude: ${placeDetailsModel?.result.geometry?.location}',
-                            );
-
-                            setState(() {
-                              _location = prediction.description;
-                              final loc =
-                                  placeDetailsModel?.result.geometry?.location;
-                              if (loc != null) {
-                                _latitude = loc.lat;
-                                _longitude = loc.lng;
-                              } else {
-                                _latitude = null;
-                                _longitude = null;
-                              }
-                            });
-
-                            if (context.mounted) {
-                              Navigator.pop(context);
-                            }
-                          },
-                          builder: (context, controller, focusNode) {
-                            return TextField(
-                              controller: controller,
-                              focusNode: focusNode,
-                              autofocus: true,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Search place, region or establishment...',
-                                hintStyle: const TextStyle(
-                                  color: Colors.white30,
-                                  fontSize: 13,
-                                ),
-                                filled: true,
-                                fillColor: Colors.black.withValues(alpha: 0.3),
-                                prefixIcon: const Icon(
-                                  Icons.search,
-                                  color: Colors.blueAccent,
-                                  size: 20,
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide.none,
-                                ),
-                              ),
-                            );
-                          },
-                          decorationBuilder: (context, child) {
-                            return Material(
-                              type: MaterialType.card,
-                              elevation: 8,
-                              color: const Color(0xFF161922),
-                              borderRadius: BorderRadius.circular(16),
-                              child: child,
-                            );
-                          },
-                          itemBuilder: (context, prediction) {
-                            return ListTile(
-                              dense: true,
-                              leading: const Icon(
-                                Icons.location_on,
-                                color: Colors.blueAccent,
-                                size: 18,
-                              ),
-                              title: Text(
-                                prediction.description,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   /// Show premium Tag input dialogue
@@ -991,72 +809,6 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   physics: const BouncingScrollPhysics(),
                   child: Row(
                     children: [
-                      // Location Pill
-                      GestureDetector(
-                        onTap: _showLocationBottomSheet,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _location.isNotEmpty
-                                ? Colors.blueAccent.withValues(alpha: 0.12)
-                                : Colors.white.withValues(alpha: 0.02),
-                            borderRadius: BorderRadius.circular(30),
-                            border: Border.all(
-                              color: _location.isNotEmpty
-                                  ? Colors.blueAccent.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.06),
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.location_on,
-                                size: 16,
-                                color: _location.isNotEmpty
-                                    ? Colors.blueAccent
-                                    : Colors.white60,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _location.isNotEmpty
-                                    ? _location
-                                    : 'Add Location',
-                                style: TextStyle(
-                                  color: _location.isNotEmpty
-                                      ? Colors.blueAccent
-                                      : Colors.white70,
-                                  fontSize: 13,
-                                  fontWeight: _location.isNotEmpty
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
-                                ),
-                              ),
-                              if (_location.isNotEmpty) ...[
-                                const SizedBox(width: 4),
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _location = '';
-                                    });
-                                  },
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.blueAccent,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
                       // Tags Pill
                       GestureDetector(
                         onTap: _showTagDialog,

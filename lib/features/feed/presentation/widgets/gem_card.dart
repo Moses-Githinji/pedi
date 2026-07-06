@@ -7,9 +7,6 @@ class GemCard extends StatelessWidget {
   final String imageUrl; // Can be image or video URL
   final String title;
   final String description;
-  final String location;
-  final double? latitude;
-  final double? longitude;
   final List<String> tags;
   final String mediaType;
   final bool isActive;
@@ -20,9 +17,6 @@ class GemCard extends StatelessWidget {
     required this.imageUrl,
     required this.title,
     required this.description,
-    required this.location,
-    this.latitude,
-    this.longitude,
     required this.tags,
     this.mediaType = 'image',
     this.isActive = false,
@@ -75,9 +69,6 @@ class GemCard extends StatelessWidget {
         GemOverlay(
           title: title,
           description: description,
-          location: location,
-          latitude: latitude,
-          longitude: longitude,
           tags: tags,
         ),
       ],

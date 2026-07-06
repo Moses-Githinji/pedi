@@ -163,7 +163,6 @@ class _FeedListState extends ConsumerState<_FeedList> {
               imageUrl: post.videoUrl, // GemCard uses imageUrl for both
               title: post.title,
               description: post.description,
-              location: post.location,
               tags: post.tags,
               mediaType: 'video', // All current backend posts are videos
               isActive: isItemActive,

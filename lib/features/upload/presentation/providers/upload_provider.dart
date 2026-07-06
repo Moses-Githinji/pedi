@@ -54,9 +54,6 @@ class UploadService {
     required String videoUrl,
     required String title,
     required String description,
-    required String location,
-    double? latitude,
-    double? longitude,
     required List<String> tags,
   }) async {
     try {
@@ -70,9 +67,6 @@ class UploadService {
         thumbnailUrl: 'https://picsum.photos/seed/${postDoc.id}/300/500',
         title: title,
         description: description,
-        location: location,
-        latitude: latitude,
-        longitude: longitude,
         tags: tags,
         createdAt: DateTime.now(),
       );
