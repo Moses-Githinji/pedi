@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:perfect_volume_control/perfect_volume_control.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -27,12 +29,46 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   bool _userPaused = false;
   String? _errorMessage;
 
+  StreamSubscription<double>? _volumeSubscription;
+  Timer? _hideSliderTimer;
+  double _currentVolume = 0.5;
+  bool _isVolumeSliderVisible = false;
+
   @override
   void initState() {
     super.initState();
     if (widget.isPreload) {
       _initializePlayer();
     }
+
+    PerfectVolumeControl.hideUI = true;
+
+    Future.microtask(() async {
+      _currentVolume = await PerfectVolumeControl.getVolume();
+      if (mounted) setState(() {});
+    });
+
+    _volumeSubscription = PerfectVolumeControl.stream.listen((volume) {
+      if (!mounted) return;
+      if (volume != _currentVolume) {
+        setState(() {
+          _currentVolume = volume;
+          _isVolumeSliderVisible = true;
+        });
+        _resetHideSliderTimer();
+      }
+    });
+  }
+
+  void _resetHideSliderTimer() {
+    _hideSliderTimer?.cancel();
+    _hideSliderTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() {
+          _isVolumeSliderVisible = false;
+        });
+      }
+    });
   }
 
   void _initializePlayer() {
@@ -115,11 +151,20 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
 
   @override
   void dispose() {
+    _hideSliderTimer?.cancel();
+    _volumeSubscription?.cancel();
     _disposePlayer();
     super.dispose();
   }
 
   void _togglePlayPause() {
+    if (_isVolumeSliderVisible) {
+      setState(() {
+        _isVolumeSliderVisible = false;
+      });
+      return;
+    }
+
     if (_player == null) return;
     setState(() {
       _userPaused = !_userPaused;
@@ -193,6 +238,35 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
                   Icons.play_arrow,
                   color: Colors.white,
                   size: 64,
+                ),
+              ),
+            ),
+          if (_isVolumeSliderVisible)
+            Positioned(
+              top: 100,
+              right: 16,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.black45,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Slider(
+                    value: _currentVolume,
+                    min: 0.0,
+                    max: 1.0,
+                    activeColor: Colors.white,
+                    inactiveColor: Colors.white30,
+                    onChanged: (value) {
+                      setState(() {
+                        _currentVolume = value;
+                      });
+                      PerfectVolumeControl.setVolume(value);
+                      _resetHideSliderTimer();
+                    },
+                  ),
                 ),
               ),
             ),
