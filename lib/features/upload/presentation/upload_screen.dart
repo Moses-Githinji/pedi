@@ -301,7 +301,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         PlaceSearchField(
-                          apiKey: "AIzaSyBWKZognadNlfZ7rg5EyDQxHWin8zkmwjE",
+                          apiKey: const String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: ''),
                           isLatLongRequired: true,
                           onPlaceSelected: (prediction, placeDetailsModel) async {
                             log('Place ID: ${prediction.place_id}');
