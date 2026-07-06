@@ -134,11 +134,15 @@ class ProfileService {
       final file = File(filePath);
       final ref = FirebaseStorage.instance
           .ref()
-          .child('profile_images')
-          .child('$uid.jpg');
+          .child('profiles')
+          .child(uid)
+          .child('avatar.jpg');
 
-      // Upload file with a 15-second timeout for robust performance
-      final uploadTask = await ref.putFile(file).timeout(const Duration(seconds: 15));
+      // Upload file with a 15-second timeout for robust performance, specifying content type metadata to satisfy storage rules
+      final uploadTask = await ref.putFile(
+        file,
+        SettableMetadata(contentType: 'image/jpeg'),
+      ).timeout(const Duration(seconds: 15));
       final downloadUrl = await uploadTask.ref.getDownloadURL();
       return downloadUrl;
     } catch (e) {

@@ -1,19 +1,25 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <application
         android:label="pedi"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:requestLegacyExternalStorage="true">
 
-        <!-- Disable Credential Manager to prevent assisted sign-in UI crash (width/height <= 0) on some devices -->
+        <!-- Enable Credential Manager for Google Sign-In -->
         <meta-data 
             android:name="com.google.android.gms.credentials.API_ENABLED" 
-            android:value="false" />
+            android:value="true" />
         <meta-data 
             android:name="com.google.android.gms.credentials.CredentialPickerConfig" 
-            android:value="false" />
+            android:value="true" />
         <meta-data 
             android:name="androidx.credentials.CREDENTIAL_SERVICE_ENABLED" 
-            android:value="false" />
+            android:value="true" />
 
         <activity
             android:name=".MainActivity"

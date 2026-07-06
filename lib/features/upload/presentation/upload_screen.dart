@@ -6,8 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
+import 'package:media_kit/media_kit.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:google_places_api_flutter/google_places_api_flutter.dart';
+// import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../profile/presentation/providers/profile_provider.dart';
@@ -22,7 +24,8 @@ class UploadScreen extends ConsumerStatefulWidget {
 
 class _UploadScreenState extends ConsumerState<UploadScreen> {
   File? _videoFile;
-  VideoPlayerController? _videoController;
+  Player? _player;
+  VideoController? _videoController;
   bool _isInitialized = false;
 
   final _titleController = TextEditingController();
@@ -37,7 +40,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
 
   @override
   void dispose() {
-    _videoController?.dispose();
+    _player?.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -55,33 +58,48 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       if (pickedFile == null) return;
 
       // Dispose existing controller if any
-      if (_videoController != null) {
-        await _videoController!.dispose();
+      if (_player != null) {
+        final oldPlayer = _player!;
+        _player = null;
+        _videoController = null;
+        await oldPlayer.dispose();
+      }
+
+      final file = File(pickedFile.path);
+      if (mounted) {
         setState(() {
+          _videoFile = file;
           _isInitialized = false;
         });
       }
 
-      final file = File(pickedFile.path);
-      final controller = VideoPlayerController.file(file);
+      final player = Player();
+      final controller = VideoController(player);
 
-      await controller.initialize();
-      await controller.setLooping(true);
-      await controller.setVolume(0.0); // Silent previews
-      await controller.play();
+      await player.open(Media(file.path), play: false);
+      player.setPlaylistMode(PlaylistMode.single);
+      player.setVolume(0.0); // Silent previews
+      await player.play();
 
       if (mounted) {
         setState(() {
-          _videoFile = file;
+          _player = player;
           _videoController = controller;
           _isInitialized = true;
         });
       }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _videoFile = null;
+          _isInitialized = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to load video: $e', style: const TextStyle(color: Colors.white)),
+            content: Text(
+              'Failed to load video: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -95,7 +113,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
     if (_videoFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select or record a video first!', style: TextStyle(color: Colors.white)),
+          content: Text(
+            'Please select or record a video first!',
+            style: TextStyle(color: Colors.white),
+          ),
           backgroundColor: Colors.orangeAccent,
         ),
       );
@@ -115,13 +136,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       ref.read(uploadProgressProvider.notifier).set(0.0);
 
       // 1. Fetch current creator details dynamically from Firestore profile stream (fallback to Firebase Auth display name)
-      final profileStream = ref.read(userProfileStreamProvider(firebaseUser.uid));
+      final profileStream = ref.read(
+        userProfileStreamProvider(firebaseUser.uid),
+      );
       final userProfile = profileStream.asData?.value;
-      final creatorName = userProfile?.displayName ?? firebaseUser.displayName ?? 'Pedi User';
-      final creatorPhotoUrl = userProfile?.photoUrl ?? firebaseUser.photoURL ?? '';
+      final creatorName =
+          userProfile?.displayName ?? firebaseUser.displayName ?? 'Pedi User';
+      final creatorPhotoUrl =
+          userProfile?.photoUrl ?? firebaseUser.photoURL ?? '';
 
       // 2. Upload video file to Storage
-      final videoUrl = await ref.read(uploadServiceProvider).uploadVideo(
+      final videoUrl = await ref
+          .read(uploadServiceProvider)
+          .uploadVideo(
             uid: firebaseUser.uid,
             filePath: _videoFile!.path,
             onProgress: (progress) {
@@ -132,7 +159,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
           );
 
       // 3. Create document in Firestore
-      await ref.read(uploadServiceProvider).createPost(
+      await ref
+          .read(uploadServiceProvider)
+          .createPost(
             creatorId: firebaseUser.uid,
             creatorName: creatorName,
             creatorPhotoUrl: creatorPhotoUrl,
@@ -148,14 +177,17 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Post successfully published!', style: TextStyle(color: Colors.white)),
+            content: Text(
+              'Post successfully published!',
+              style: TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.green,
           ),
         );
 
         // Reset state
-        _videoController?.pause();
-        _videoController?.dispose();
+        _player?.dispose();
+        _player = null;
         _videoController = null;
         _titleController.clear();
         _descriptionController.clear();
@@ -175,7 +207,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to publish post: $e', style: const TextStyle(color: Colors.white)),
+            content: Text(
+              'Failed to publish post: $e',
+              style: const TextStyle(color: Colors.white),
+            ),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -218,7 +253,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   ),
                 ),
               ),
-              
+
               // Header Title
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -227,7 +262,11 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   children: [
                     const Row(
                       children: [
-                        Icon(Icons.location_on, color: Colors.blueAccent, size: 22),
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.blueAccent,
+                          size: 22,
+                        ),
                         SizedBox(width: 8),
                         Text(
                           'Add Location',
@@ -240,15 +279,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                       ],
                     ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white54, size: 20),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white54,
+                        size: 20,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 12),
-              
+
               // Search Field using google_places_api_flutter
               Expanded(
                 child: Padding(
@@ -258,16 +301,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         PlaceSearchField(
-                          apiKey: "AIzaSyCfW7jMPNl7eUk7nR_CKRDMgAFgurme7wo",
+                          apiKey: "AIzaSyBWKZognadNlfZ7rg5EyDQxHWin8zkmwjE",
                           isLatLongRequired: true,
                           onPlaceSelected: (prediction, placeDetailsModel) async {
                             log('Place ID: ${prediction.place_id}');
                             log('Description: ${prediction.description}');
-                            log('Latitude and Longitude: ${placeDetailsModel?.result.geometry?.location}');
-                            
+                            log(
+                              'Latitude and Longitude: ${placeDetailsModel?.result.geometry?.location}',
+                            );
+
                             setState(() {
                               _location = prediction.description;
-                              final loc = placeDetailsModel?.result.geometry?.location;
+                              final loc =
+                                  placeDetailsModel?.result.geometry?.location;
                               if (loc != null) {
                                 _latitude = loc.lat;
                                 _longitude = loc.lng;
@@ -276,7 +322,7 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                 _longitude = null;
                               }
                             });
-                            
+
                             if (context.mounted) {
                               Navigator.pop(context);
                             }
@@ -288,11 +334,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                               autofocus: true,
                               style: const TextStyle(color: Colors.white),
                               decoration: InputDecoration(
-                                hintText: 'Search place, region or establishment...',
-                                hintStyle: const TextStyle(color: Colors.white30, fontSize: 13),
+                                hintText:
+                                    'Search place, region or establishment...',
+                                hintStyle: const TextStyle(
+                                  color: Colors.white30,
+                                  fontSize: 13,
+                                ),
                                 filled: true,
                                 fillColor: Colors.black.withValues(alpha: 0.3),
-                                prefixIcon: const Icon(Icons.search, color: Colors.blueAccent, size: 20),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  color: Colors.blueAccent,
+                                  size: 20,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                   borderSide: BorderSide.none,
@@ -312,12 +366,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                           itemBuilder: (context, prediction) {
                             return ListTile(
                               dense: true,
-                              leading: const Icon(Icons.location_on, color: Colors.blueAccent, size: 18),
+                              leading: const Icon(
+                                Icons.location_on,
+                                color: Colors.blueAccent,
+                                size: 18,
+                              ),
                               title: Text(
                                 prediction.description,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(color: Colors.white, fontSize: 13),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
                               ),
                             );
                           },
@@ -348,7 +409,13 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            title: const Text('Add Post Tags', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            title: const Text(
+              'Add Post Tags',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -365,7 +432,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                           hintStyle: const TextStyle(color: Colors.white30),
                           filled: true,
                           fillColor: Colors.black.withValues(alpha: 0.3),
-                          prefixIcon: const Icon(Icons.tag, color: Colors.blueAccent),
+                          prefixIcon: const Icon(
+                            Icons.tag,
+                            color: Colors.blueAccent,
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                             borderSide: BorderSide.none,
@@ -386,9 +456,16 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     ),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.add_circle, color: Colors.blueAccent, size: 36),
+                      icon: const Icon(
+                        Icons.add_circle,
+                        color: Colors.blueAccent,
+                        size: 36,
+                      ),
                       onPressed: () {
-                        final clean = controller.text.trim().replaceAll('#', '');
+                        final clean = controller.text.trim().replaceAll(
+                          '#',
+                          '',
+                        );
                         if (clean.isNotEmpty && !_tags.contains(clean)) {
                           setState(() {
                             _tags.add(clean);
@@ -402,12 +479,22 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
-                const Text('Current Tags:', style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Current Tags:',
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 _tags.isEmpty
                     ? const Padding(
                         padding: EdgeInsets.symmetric(vertical: 12),
-                        child: Text('No tags added yet.', style: TextStyle(color: Colors.white30, fontSize: 12)),
+                        child: Text(
+                          'No tags added yet.',
+                          style: TextStyle(color: Colors.white30, fontSize: 12),
+                        ),
                       )
                     : Container(
                         constraints: const BoxConstraints(maxHeight: 120),
@@ -417,16 +504,29 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                             runSpacing: 8,
                             children: _tags.map((tag) {
                               return Chip(
-                                backgroundColor: Colors.blueAccent.withValues(alpha: 0.12),
+                                backgroundColor: Colors.blueAccent.withValues(
+                                  alpha: 0.12,
+                                ),
                                 label: Text(
                                   '#$tag',
-                                  style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
+                                  style: const TextStyle(
+                                    color: Colors.blueAccent,
+                                    fontSize: 12,
+                                  ),
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(20),
-                                  side: BorderSide(color: Colors.blueAccent.withValues(alpha: 0.2)),
+                                  side: BorderSide(
+                                    color: Colors.blueAccent.withValues(
+                                      alpha: 0.2,
+                                    ),
+                                  ),
                                 ),
-                                deleteIcon: const Icon(Icons.close, size: 14, color: Colors.blueAccent),
+                                deleteIcon: const Icon(
+                                  Icons.close,
+                                  size: 14,
+                                  color: Colors.blueAccent,
+                                ),
                                 onDeleted: () {
                                   setState(() {
                                     _tags.remove(tag);
@@ -445,9 +545,14 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blueAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: const Text('Done', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Done',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -490,7 +595,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.03),
                         borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -500,7 +607,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                             decoration: BoxDecoration(
                               color: Colors.blueAccent.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.blueAccent.withValues(alpha: 0.2)),
+                              border: Border.all(
+                                color: Colors.blueAccent.withValues(alpha: 0.2),
+                              ),
                             ),
                             child: const Icon(
                               Icons.cloud_upload_outlined,
@@ -573,13 +682,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
         elevation: 0,
         title: const Text(
           'New Share',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
         ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: TextButton(
-              onPressed: (_isPublishing || _videoFile == null) ? null : _uploadAndPublish,
+              onPressed: (_isPublishing || _videoFile == null)
+                  ? null
+                  : _uploadAndPublish,
               child: Text(
                 'Publish',
                 style: TextStyle(
@@ -610,25 +725,50 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     height: 340,
                     decoration: BoxDecoration(
                       color: Colors.grey[950],
-                      border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
                         // Looping video preview
-                        if (_videoFile != null && _isInitialized && _videoController != null)
+                        if (_videoFile != null)
                           GestureDetector(
                             onTap: _pickVideo,
                             child: SizedBox.expand(
-                              child: FittedBox(
-                                fit: BoxFit.cover,
-                                child: SizedBox(
-                                  width: _videoController!.value.size.width,
-                                  height: _videoController!.value.size.height,
-                                  child: VideoPlayer(_videoController!),
-                                ),
-                              ),
+                              child: _isInitialized && _videoController != null
+                                  ? Video(
+                                      controller: _videoController!,
+                                      fit: BoxFit.cover,
+                                      controls: NoVideoControls,
+                                    )
+                                  : const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          SizedBox(
+                                            width: 48,
+                                            height: 48,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 3,
+                                              valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                                            ),
+                                          ),
+                                          SizedBox(height: 20),
+                                          Text(
+                                            'Preparing video thumbnail...',
+                                            style: TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              letterSpacing: 0.2,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                             ),
                           )
                         else
@@ -643,9 +783,15 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                   Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.02),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.02,
+                                      ),
                                       shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                                      border: Border.all(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.04,
+                                        ),
+                                      ),
                                     ),
                                     child: const Icon(
                                       Icons.video_collection_outlined,
@@ -656,12 +802,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                   const SizedBox(height: 16),
                                   const Text(
                                     'Tap to Select Video Preview',
-                                    style: TextStyle(color: Colors.white54, fontSize: 15, fontWeight: FontWeight.w600),
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                   const Text(
                                     'Max duration: 60 seconds',
-                                    style: TextStyle(color: Colors.white30, fontSize: 12),
+                                    style: TextStyle(
+                                      color: Colors.white30,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -689,7 +842,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                               value: uploadProgress,
                                               strokeWidth: 4,
                                               backgroundColor: Colors.white12,
-                                              valueColor: const AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                    Color
+                                                  >(Colors.blueAccent),
                                             ),
                                           ),
                                           Text(
@@ -705,12 +861,19 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                       const SizedBox(height: 16),
                                       const Text(
                                         'Uploading moment...',
-                                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
+                                        ),
                                       ),
                                       const SizedBox(height: 4),
                                       const Text(
                                         'Almost ready to share with Pedi',
-                                        style: TextStyle(color: Colors.white54, fontSize: 12),
+                                        style: TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 12,
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -728,7 +891,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                 // ── Sleek Glassmorphic Form Fields ─────────────────────────────
                 TextFormField(
                   controller: _titleController,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                   maxLength: 50,
                   validator: (val) {
                     if (val == null || val.trim().isEmpty) {
@@ -742,14 +908,22 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     filled: true,
                     fillColor: Colors.grey[950],
                     counterStyle: const TextStyle(color: Colors.white30),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Colors.blueAccent,
+                        width: 1.5,
+                      ),
                     ),
                     errorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
@@ -757,7 +931,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     ),
                     focusedErrorBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Colors.redAccent,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -775,14 +952,22 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     filled: true,
                     fillColor: Colors.grey[950],
                     counterStyle: const TextStyle(color: Colors.white30),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 16,
+                    ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+                      borderSide: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Colors.blueAccent, width: 1.5),
+                      borderSide: const BorderSide(
+                        color: Colors.blueAccent,
+                        width: 1.5,
+                      ),
                     ),
                   ),
                 ),
@@ -811,7 +996,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                         onTap: _showLocationBottomSheet,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: _location.isNotEmpty
                                 ? Colors.blueAccent.withValues(alpha: 0.12)
@@ -828,15 +1016,23 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                               Icon(
                                 Icons.location_on,
                                 size: 16,
-                                color: _location.isNotEmpty ? Colors.blueAccent : Colors.white60,
+                                color: _location.isNotEmpty
+                                    ? Colors.blueAccent
+                                    : Colors.white60,
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                _location.isNotEmpty ? _location : 'Add Location',
+                                _location.isNotEmpty
+                                    ? _location
+                                    : 'Add Location',
                                 style: TextStyle(
-                                  color: _location.isNotEmpty ? Colors.blueAccent : Colors.white70,
+                                  color: _location.isNotEmpty
+                                      ? Colors.blueAccent
+                                      : Colors.white70,
                                   fontSize: 13,
-                                  fontWeight: _location.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                                  fontWeight: _location.isNotEmpty
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                               if (_location.isNotEmpty) ...[
@@ -847,7 +1043,11 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                       _location = '';
                                     });
                                   },
-                                  child: const Icon(Icons.close, size: 14, color: Colors.blueAccent),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.blueAccent,
+                                  ),
                                 ),
                               ],
                             ],
@@ -862,7 +1062,10 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                         onTap: _showTagDialog,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
                           decoration: BoxDecoration(
                             color: _tags.isNotEmpty
                                 ? Colors.blueAccent.withValues(alpha: 0.12)
@@ -879,7 +1082,9 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                               Icon(
                                 Icons.tag,
                                 size: 16,
-                                color: _tags.isNotEmpty ? Colors.blueAccent : Colors.white60,
+                                color: _tags.isNotEmpty
+                                    ? Colors.blueAccent
+                                    : Colors.white60,
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -887,9 +1092,13 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                     ? '${_tags.length} Tag${_tags.length > 1 ? 's' : ''}'
                                     : 'Add Tags',
                                 style: TextStyle(
-                                  color: _tags.isNotEmpty ? Colors.blueAccent : Colors.white70,
+                                  color: _tags.isNotEmpty
+                                      ? Colors.blueAccent
+                                      : Colors.white70,
                                   fontSize: 13,
-                                  fontWeight: _tags.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                                  fontWeight: _tags.isNotEmpty
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
                               if (_tags.isNotEmpty) ...[
@@ -900,7 +1109,11 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                                       _tags.clear();
                                     });
                                   },
-                                  child: const Icon(Icons.close, size: 14, color: Colors.blueAccent),
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 14,
+                                    color: Colors.blueAccent,
+                                  ),
                                 ),
                               ],
                             ],
@@ -920,15 +1133,23 @@ class _UploadScreenState extends ConsumerState<UploadScreen> {
                     runSpacing: 6,
                     children: _tags.map((tag) {
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.03),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.03)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.03),
+                          ),
                         ),
                         child: Text(
                           '#$tag',
-                          style: const TextStyle(color: Colors.white30, fontSize: 11),
+                          style: const TextStyle(
+                            color: Colors.white30,
+                            fontSize: 11,
+                          ),
                         ),
                       );
                     }).toList(),

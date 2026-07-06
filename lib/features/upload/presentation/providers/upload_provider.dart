@@ -18,9 +18,12 @@ class UploadService {
     try {
       final file = File(filePath);
       final postId = _firestore.collection('posts').doc().id;
-      final ref = _storage.ref().child('videos').child('$postId.mp4');
+      final ref = _storage.ref().child('gems').child(uid).child('$postId.mp4');
 
-      final uploadTask = ref.putFile(file);
+      final uploadTask = ref.putFile(
+        file,
+        SettableMetadata(contentType: 'video/mp4'),
+      );
 
       // Listen to progress changes
       final subscription = uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'widgets/gem_card.dart';
+import 'providers/feed_provider.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -12,6 +14,7 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  int _activeTabIndex = 1;
 
   @override
   void initState() {
@@ -21,10 +24,21 @@ class _FeedScreenState extends State<FeedScreen>
       vsync: this,
       initialIndex: 1,
     ); // Default to Explore
+    _tabController.addListener(_handleTabChange);
+  }
+
+  void _handleTabChange() {
+    if (_tabController.indexIsChanging) return;
+    if (mounted) {
+      setState(() {
+        _activeTabIndex = _tabController.index;
+      });
+    }
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChange);
     _tabController.dispose();
     super.dispose();
   }
@@ -37,9 +51,15 @@ class _FeedScreenState extends State<FeedScreen>
         children: [
           TabBarView(
             controller: _tabController,
-            children: const [
-              _FeedList(feedType: 'picks'),
-              _FeedList(feedType: 'explore'),
+            children: [
+              _FeedList(
+                feedType: 'picks',
+                isTabActive: _activeTabIndex == 0,
+              ),
+              _FeedList(
+                feedType: 'explore',
+                isTabActive: _activeTabIndex == 1,
+              ),
             ],
           ),
           // Top Navigation Overlay
@@ -53,41 +73,26 @@ class _FeedScreenState extends State<FeedScreen>
                   horizontal: 16.0,
                   vertical: 8.0,
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Empty space to balance the search icon on the right
-                    const SizedBox(width: 48),
-                    Expanded(
-                      child: TabBar(
-                        controller: _tabController,
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.center,
-                        indicatorColor: Colors.transparent,
-                        indicatorSize: TabBarIndicatorSize.label,
-                        dividerColor: Colors.transparent,
-                        labelPadding: const EdgeInsets.symmetric(horizontal: 10.0),
-                        labelColor: Colors.white,
-                        unselectedLabelColor: Colors.white54,
-                        labelStyle: GoogleFonts.finlandica(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        tabs: const [
-                          Tab(text: 'My Picks'),
-                          Tab(text: 'Explore'),
-                        ],
-                      ),
+                child: Center(
+                  child: TabBar(
+                    controller: _tabController,
+                    isScrollable: true,
+                    tabAlignment: TabAlignment.center,
+                    indicatorColor: Colors.transparent,
+                    indicatorSize: TabBarIndicatorSize.label,
+                    dividerColor: Colors.transparent,
+                    labelPadding: const EdgeInsets.symmetric(horizontal: 10.0),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.white54,
+                    labelStyle: GoogleFonts.finlandica(
+                       fontSize: 14,
+                      fontWeight: FontWeight.bold,
                     ),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.search,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      onPressed: () {},
-                    ),
-                  ],
+                    tabs: const [
+                      Tab(text: 'My Picks'),
+                      Tab(text: 'Explore'),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -98,76 +103,73 @@ class _FeedScreenState extends State<FeedScreen>
   }
 }
 
-class _FeedList extends StatefulWidget {
+class _FeedList extends ConsumerStatefulWidget {
   final String feedType;
-  const _FeedList({required this.feedType});
+  final bool isTabActive;
+  const _FeedList({
+    required this.feedType,
+    required this.isTabActive,
+  });
 
   @override
-  State<_FeedList> createState() => _FeedListState();
+  ConsumerState<_FeedList> createState() => _FeedListState();
 }
 
-class _FeedListState extends State<_FeedList> {
+class _FeedListState extends ConsumerState<_FeedList> {
   int _currentIndex = 0;
-
-  // Mock data for the feed
-  final List<Map<String, dynamic>> mockGems = [
-    {
-      'imageUrl':
-          'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-      'mediaType': 'video',
-      'title': 'Underground Techno Party',
-      'description':
-          'Secret location techno party with the best DJs in town. Don\'t miss out!',
-      'location': 'Brooklyn, NY',
-      'tags': ['techno', 'party', 'underground'],
-    },
-    {
-      'imageUrl':
-          'https://flutter.github.io/assets-for-api-docs/assets/videos/butterfly.mp4',
-      'mediaType': 'video',
-      'title': 'Indie Rock Festival',
-      'description': 'Three days of non-stop indie rock from upcoming bands.',
-      'location': 'Austin, TX',
-      'tags': ['music', 'festival', 'indie'],
-    },
-    {
-      'imageUrl':
-          'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
-      'mediaType': 'video',
-      'title': 'Rooftop Sunset Lounge',
-      'description':
-          'Enjoy the best views of the city with our signature cocktails.',
-      'location': 'Manhattan, NY',
-      'tags': ['rooftop', 'sunset', 'drinks'],
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
-    // Reverse the mock data for 'picks' just to look different
-    final data = widget.feedType == 'picks'
-        ? mockGems.reversed.toList()
-        : mockGems;
+    final feedAsync = ref.watch(feedProvider);
 
-    return PageView.builder(
-      scrollDirection: Axis.vertical,
-      itemCount: data.length,
-      onPageChanged: (index) {
-        setState(() {
-          _currentIndex = index;
-        });
-      },
-      itemBuilder: (context, index) {
-        final gem = data[index];
-        return GemCard(
-          imageUrl: gem['imageUrl'],
-          title: gem['title'],
-          description: gem['description'],
-          location: gem['location'],
-          tags: List<String>.from(gem['tags']),
-          mediaType: gem['mediaType'],
-          isActive: index == _currentIndex,
-          isPreload: (index - _currentIndex).abs() <= 1,
+    return feedAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+      error: (err, stack) => Center(
+        child: Text(
+          'Error loading feed: $err',
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      data: (posts) {
+        if (posts.isEmpty) {
+          return const Center(
+            child: Text(
+              'No posts yet. Be the first to share!',
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          );
+        }
+
+        // Optional: for now we use the same list for both tabs.
+        // If 'picks' needs different logic later, handle it here.
+        final data = widget.feedType == 'picks' ? posts.reversed.toList() : posts;
+
+        return PageView.builder(
+          scrollDirection: Axis.vertical,
+          itemCount: data.length,
+          onPageChanged: (index) {
+            setState(() {
+              _currentIndex = index;
+            });
+          },
+          itemBuilder: (context, index) {
+            final post = data[index];
+            final isItemActive = widget.isTabActive && index == _currentIndex;
+            final isItemPreload = widget.isTabActive && (index - _currentIndex).abs() <= 1;
+
+            return GemCard(
+              imageUrl: post.videoUrl, // GemCard uses imageUrl for both
+              title: post.title,
+              description: post.description,
+              location: post.location,
+              tags: post.tags,
+              mediaType: 'video', // All current backend posts are videos
+              isActive: isItemActive,
+              isPreload: isItemPreload,
+            );
+          },
         );
       },
     );

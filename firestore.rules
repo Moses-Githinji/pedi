@@ -1,21 +1,56 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // User Profiles
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
-      allow delete: if false; // Users shouldn't delete their own accounts directly without a function
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+      allow delete: if false; // Users shouldn't delete accounts directly
+      
+      // User's Liked Posts Subcollection
+      match /likedPosts/{postId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // User's Saved Posts Subcollection
+      match /savedPosts/{postId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+      
+      // User's Notifications Subcollection
+      match /notifications/{notificationId} {
+        // A user can read, update, or delete their own notifications
+        allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+        // Any authenticated user can create a notification for another user (e.g. when liking their post or following them)
+        allow create: if request.auth != null;
+      }
     }
+    
+    // Posts
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      // Any authenticated user can create a post, but the creatorId must match their auth UID
+      allow create: if request.auth != null && request.resource.data.creatorId == request.auth.uid;
+      // Only the creator can update or delete their post, or other users updating non-restricted counters if needed
+      allow update: if request.auth != null && (
+        resource.data.creatorId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'viewsCount', 'sharesCount'])
+      );
+      allow delete: if request.auth != null && resource.data.creatorId == request.auth.uid;
+    }
+
+    // Legacy Gems collection compatibility
     match /gems/{gemId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null; // Refine later for only creator or specific fields
-      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
+      allow create: if request.auth != null && request.resource.data.creatorId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.creatorId == request.auth.uid;
       
       match /votes/{voteId} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null; // Votes handled securely via Cloud Functions or strict rules
+        allow write: if request.auth != null;
       }
     }
   }

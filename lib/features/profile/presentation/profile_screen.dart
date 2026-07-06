@@ -184,7 +184,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ),
       ),
       data: (user) {
-        final showEditButton = firebaseUser.providerData.any((info) => info.providerId == 'password');
+        const showEditButton = true;
         return Scaffold(
           backgroundColor: Colors.black,
           appBar: AppBar(

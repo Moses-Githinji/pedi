@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:pedi/core/utils/logger.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+// import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GemOverlay extends ConsumerWidget {
   final String title;
@@ -24,7 +25,11 @@ class GemOverlay extends ConsumerWidget {
     required this.tags,
   });
 
-  void _handleInteraction(BuildContext context, WidgetRef ref, VoidCallback action) {
+  void _handleInteraction(
+    BuildContext context,
+    WidgetRef ref,
+    VoidCallback action,
+  ) {
     final authState = ref.read(authStateProvider);
     if (authState.asData?.value != null) {
       action();
@@ -57,10 +62,7 @@ class GemOverlay extends ConsumerWidget {
                   SizedBox(height: 2),
                   Text(
                     'Please sign in to interact with posts.',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                 ],
               ),
@@ -76,9 +78,7 @@ class GemOverlay extends ConsumerWidget {
         ),
         backgroundColor: Colors.grey[900],
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         margin: const EdgeInsets.only(bottom: 80, left: 16, right: 16),
         duration: const Duration(seconds: 4),
       ),
@@ -87,21 +87,22 @@ class GemOverlay extends ConsumerWidget {
 
   void _showMapBottomSheet(BuildContext context) {
     final bool hasCoordinates = latitude != null && longitude != null;
-    const String apiKey = 'AIzaSyCfW7jMPNl7eUk7nR_CKRDMgAFgurme7wo';
+    final String apiKey = "AIzaSyBWKZognadNlfZ7rg5EyDQxHWin8zkmwjE";
 
     // Premium dark-theme custom style parameters for Google Static Maps
-    const String darkMapStyle = 'style=element:geometry%7Ccolor:0x1b1d24&style=element:labels.icon%7Cvisibility:off&style=element:labels.text.fill%7Ccolor:0x8e929d&style=element:labels.text.stroke%7Ccolor:0x1b1d24&style=feature:administrative%7Celement:geometry%7Ccolor:0x333742&style=feature:road%7Celement:geometry.fill%7Ccolor:0x272a35&style=feature:road%7Celement:geometry.stroke%7Ccolor:0x1b1d24&style=feature:water%7Celement:geometry%7Ccolor:0x0d0f14&style=feature:poi%7Celement:geometry%7Ccolor:0x1f222b';
+    const String darkMapStyle =
+        'style=element:geometry%7Ccolor:0x1b1d24&style=element:labels.icon%7Cvisibility:off&style=element:labels.text.fill%7Ccolor:0x8e929d&style=element:labels.text.stroke%7Ccolor:0x1b1d24&style=feature:administrative%7Celement:geometry%7Ccolor:0x333742&style=feature:road%7Celement:geometry.fill%7Ccolor:0x272a35&style=feature:road%7Celement:geometry.stroke%7Ccolor:0x1b1d24&style=feature:water%7Celement:geometry%7Ccolor:0x0d0f14&style=feature:poi%7Celement:geometry%7Ccolor:0x1f222b';
 
     final String staticMapUrl = hasCoordinates
         ? 'https://maps.googleapis.com/maps/api/staticmap'
-            '?center=$latitude,$longitude'
-            '&zoom=15'
-            '&size=600x320'
-            '&scale=2'
-            '&maptype=roadmap'
-            '&markers=color:0x00E5FF%7C$latitude,$longitude' // Glowing cyan pin
-            '&$darkMapStyle'
-            '&key=$apiKey'
+              '?center=$latitude,$longitude'
+              '&zoom=15'
+              '&size=600x320'
+              '&scale=2'
+              '&maptype=roadmap'
+              '&markers=color:0x00E5FF%7C$latitude,$longitude' // Glowing cyan pin
+              '&$darkMapStyle'
+              '&key=$apiKey'
         : '';
 
     Future<void> launchNativeMaps() async {
@@ -109,7 +110,7 @@ class GemOverlay extends ConsumerWidget {
       final String urlPath = hasCoordinates
           ? 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude'
           : 'https://www.google.com/maps/search/?api=1&query=$query';
-      
+
       try {
         final Uri uri = Uri.parse(urlPath);
         if (await canLaunchUrl(uri)) {
@@ -145,12 +146,15 @@ class GemOverlay extends ConsumerWidget {
                     color: Colors.black54,
                     blurRadius: 20,
                     spreadRadius: 5,
-                  )
+                  ),
                 ],
               ),
               child: ListView(
                 controller: scrollController,
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
                 children: [
                   // Premium Grab Pill
                   Center(
@@ -226,10 +230,12 @@ class GemOverlay extends ConsumerWidget {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF00E5FF).withValues(alpha: 0.05),
+                              color: const Color(
+                                0xFF00E5FF,
+                              ).withValues(alpha: 0.05),
                               blurRadius: 15,
                               spreadRadius: 2,
-                            )
+                            ),
                           ],
                         ),
                         child: ClipRRect(
@@ -242,14 +248,20 @@ class GemOverlay extends ConsumerWidget {
                               child: const Center(
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00E5FF)),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color(0xFF00E5FF),
+                                  ),
                                 ),
                               ),
                             ),
                             errorWidget: (context, url, error) => Container(
                               color: const Color(0xFF161922),
                               child: const Center(
-                                child: Icon(Icons.map_outlined, color: Colors.white24, size: 40),
+                                child: Icon(
+                                  Icons.map_outlined,
+                                  color: Colors.white24,
+                                  size: 40,
+                                ),
                               ),
                             ),
                           ),
@@ -278,13 +290,20 @@ class GemOverlay extends ConsumerWidget {
                           const SizedBox(height: 12),
                           const Text(
                             'Approximate Location',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           const Text(
                             'This post specifies a preset area. Click below to explore it dynamically in your native maps application.',
                             textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.white54, fontSize: 13, height: 1.4),
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 13,
+                              height: 1.4,
+                            ),
                           ),
                         ],
                       ),
@@ -298,7 +317,10 @@ class GemOverlay extends ConsumerWidget {
                     icon: const Icon(Icons.directions_rounded, size: 20),
                     label: const Text(
                       'Get Directions',
-                      style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF00E5FF),
@@ -308,7 +330,9 @@ class GemOverlay extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 4,
-                      shadowColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                      shadowColor: const Color(
+                        0xFF00E5FF,
+                      ).withValues(alpha: 0.3),
                     ),
                   ),
                 ],
@@ -344,24 +368,32 @@ class GemOverlay extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 description,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
+                style: const TextStyle(color: Colors.white70, fontSize: 14),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: () => _handleInteraction(context, ref, () => _showMapBottomSheet(context)),
+                onTap: () => _handleInteraction(
+                  context,
+                  ref,
+                  () => _showMapBottomSheet(context),
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.location_on, color: Colors.white, size: 16),
+                    const Icon(
+                      Icons.location_on,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
                         location,
-                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
                       ),
                     ),
                   ],
@@ -370,14 +402,18 @@ class GemOverlay extends ConsumerWidget {
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
-                children: tags.map((tag) => Text(
-                  '#$tag',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                )).toList(),
+                children: tags
+                    .map(
+                      (tag) => Text(
+                        '#$tag',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
               const SizedBox(height: 60), // Space for bottom nav
             ],
@@ -398,7 +434,13 @@ class GemOverlay extends ConsumerWidget {
               const SizedBox(height: 20),
               _buildSidebarIcon(context, ref, Icons.repeat, 'Repost', () {}),
               const SizedBox(height: 20),
-              _buildSidebarIcon(context, ref, Icons.map, 'Map', () => _showMapBottomSheet(context)),
+              _buildSidebarIcon(
+                context,
+                ref,
+                Icons.map,
+                'Map',
+                () => _showMapBottomSheet(context),
+              ),
             ],
           ),
         ),
@@ -406,7 +448,14 @@ class GemOverlay extends ConsumerWidget {
     );
   }
 
-  Widget _buildSidebarIcon(BuildContext context, WidgetRef ref, IconData icon, String label, VoidCallback onTap, {bool requiresAuth = true}) {
+  Widget _buildSidebarIcon(
+    BuildContext context,
+    WidgetRef ref,
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    bool requiresAuth = true,
+  }) {
     return GestureDetector(
       onTap: () {
         if (requiresAuth) {

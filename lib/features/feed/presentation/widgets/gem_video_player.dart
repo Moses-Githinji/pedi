@@ -23,7 +23,11 @@ class GemVideoPlayer extends ConsumerStatefulWidget {
 class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   Player? _player;
   VideoController? _videoController;
-  bool _isMuted = true;
+  bool _isPlaying = true;
+  bool _isMuted = false;
+  bool _userPaused = false;
+  bool _isVolumeSliderVisible = false;
+  double _currentVolume = 100.0;
   String? _errorMessage;
 
   @override
@@ -51,8 +55,16 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
       });
     });
 
+    // Listen to playing state for UI overlay
+    player.stream.playing.listen((playing) {
+      if (!mounted) return;
+      setState(() {
+        _isPlaying = playing;
+      });
+    });
+
     // Configure loop and mute
-    player.setPlaylistMode(PlaylistMode.loop);
+    player.setPlaylistMode(PlaylistMode.single);
     player.setVolume(_isMuted ? 0.0 : 100.0);
 
     // Open stream and pause/play based on active state
@@ -68,6 +80,9 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
       _player = null;
       _videoController = null;
       playerToDispose.dispose();
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
@@ -75,8 +90,13 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   void didUpdateWidget(GemVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
 
+    // Reset explicit pause state when the video is scrolled back into view
+    if (!oldWidget.isActive && widget.isActive) {
+      _userPaused = false;
+    }
+
     final navigationIndex = ref.read(navigationIndexProvider);
-    final shouldBePlaying = widget.isActive && (navigationIndex == 0);
+    final shouldBePlaying = widget.isActive && (navigationIndex == 0) && !_userPaused;
 
     // Proximity management
     if (widget.isPreload) {
@@ -103,30 +123,47 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   }
 
   void _togglePlayPause() {
-    _player?.playOrPause();
+    if (_isVolumeSliderVisible) {
+      setState(() {
+        _isVolumeSliderVisible = false;
+      });
+      return;
+    }
+    
+    if (_player == null) return;
+    setState(() {
+      _userPaused = !_userPaused;
+    });
+    if (_userPaused) {
+      _player!.pause();
+    } else {
+      _player!.play();
+    }
   }
 
   void _toggleMute() {
     setState(() {
-      _isMuted = !_isMuted;
-      _player?.setVolume(_isMuted ? 0.0 : 100.0);
+      _isVolumeSliderVisible = !_isVolumeSliderVisible;
     });
   }
 
   @override
   Widget build(BuildContext context) {
     // If navigation index changes, didUpdateWidget won't automatically trigger,
-    // so we watch it here to play/pause.
-    final navigationIndex = ref.watch(navigationIndexProvider);
-    final shouldBePlaying = widget.isActive && (navigationIndex == 0);
-
-    if (_player != null) {
-      if (shouldBePlaying) {
-        _player?.play();
+    // so we listen to it here to manage player lifecycle on actual tab changes.
+    ref.listen<int>(navigationIndexProvider, (previous, current) {
+      if (current == 0) {
+        // Returned to feed
+        if (widget.isPreload && _player == null) {
+          _initializePlayer();
+        } else if (widget.isActive && !_userPaused) {
+          _player?.play();
+        }
       } else {
-        _player?.pause();
+        // Navigated away from feed - aggressively free up hardware decoders
+        _disposePlayer();
       }
-    }
+    });
 
     if (_errorMessage != null) {
       return Container(
@@ -150,6 +187,7 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
     }
 
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onTap: _togglePlayPause,
       child: Stack(
         fit: StackFit.expand,
@@ -157,24 +195,71 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
           Video(
             controller: _videoController!,
             fit: BoxFit.cover,
+            controls: NoVideoControls,
           ),
-          Positioned(
-            top: 40,
-            right: 16,
-            child: GestureDetector(
-              onTap: _toggleMute,
+          if (!_isPlaying)
+            Center(
               child: Container(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
                   color: Colors.black45,
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  _isMuted ? Icons.volume_off : Icons.volume_up,
+                child: const Icon(
+                  Icons.play_arrow,
                   color: Colors.white,
-                  size: 24,
+                  size: 64,
                 ),
               ),
+            ),
+          Positioned(
+            top: 100,
+            right: 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isVolumeSliderVisible)
+                  Container(
+                    height: 120,
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.black45,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: RotatedBox(
+                      quarterTurns: 3,
+                      child: Slider(
+                        value: _currentVolume,
+                        min: 0,
+                        max: 100,
+                        activeColor: Colors.white,
+                        inactiveColor: Colors.white30,
+                        onChanged: (value) {
+                          setState(() {
+                            _currentVolume = value;
+                            _isMuted = value == 0;
+                            _player?.setVolume(value);
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                GestureDetector(
+                  onTap: _toggleMute, // now toggles slider visibility
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      color: Colors.black45,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isMuted || _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

@@ -14,12 +14,18 @@ allprojects {
 rootProject.layout.buildDirectory.set(rootProject.projectDir.parentFile.resolve("build"))
 
 subprojects {
-    project.layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(project.name))
+    if (project.name == "firebase_storage" || project.name == "screen_brightness_android") {
+        plugins.apply("org.jetbrains.kotlin.android")
+    }
+
+    if (project.projectDir.path.startsWith(rootProject.projectDir.parentFile.path)) {
+        project.layout.buildDirectory.set(rootProject.layout.buildDirectory.dir(project.name))
+    }
     
     val configureAndroid = Action<Project> {
         val android = extensions.findByName("android") as? com.android.build.gradle.BaseExtension
         android?.run {
-            compileSdkVersion(36)
+            compileSdkVersion(37)
         }
     }
     
