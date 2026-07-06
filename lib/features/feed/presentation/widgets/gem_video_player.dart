@@ -24,10 +24,7 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   Player? _player;
   VideoController? _videoController;
   bool _isPlaying = true;
-  bool _isMuted = false;
   bool _userPaused = false;
-  bool _isVolumeSliderVisible = false;
-  double _currentVolume = 100.0;
   String? _errorMessage;
 
   @override
@@ -65,7 +62,7 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
 
     // Configure loop and mute
     player.setPlaylistMode(PlaylistMode.single);
-    player.setVolume(_isMuted ? 0.0 : 100.0);
+    player.setVolume(100.0);
 
     // Open stream and pause/play based on active state
     player.open(
@@ -123,13 +120,6 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
   }
 
   void _togglePlayPause() {
-    if (_isVolumeSliderVisible) {
-      setState(() {
-        _isVolumeSliderVisible = false;
-      });
-      return;
-    }
-    
     if (_player == null) return;
     setState(() {
       _userPaused = !_userPaused;
@@ -139,12 +129,6 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
     } else {
       _player!.play();
     }
-  }
-
-  void _toggleMute() {
-    setState(() {
-      _isVolumeSliderVisible = !_isVolumeSliderVisible;
-    });
   }
 
   @override
@@ -212,56 +196,6 @@ class _GemVideoPlayerState extends ConsumerState<GemVideoPlayer> {
                 ),
               ),
             ),
-          Positioned(
-            top: 100,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isVolumeSliderVisible)
-                  Container(
-                    height: 120,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
-                      color: Colors.black45,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: RotatedBox(
-                      quarterTurns: 3,
-                      child: Slider(
-                        value: _currentVolume,
-                        min: 0,
-                        max: 100,
-                        activeColor: Colors.white,
-                        inactiveColor: Colors.white30,
-                        onChanged: (value) {
-                          setState(() {
-                            _currentVolume = value;
-                            _isMuted = value == 0;
-                            _player?.setVolume(value);
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                GestureDetector(
-                  onTap: _toggleMute, // now toggles slider visibility
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: const BoxDecoration(
-                      color: Colors.black45,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isMuted || _currentVolume == 0 ? Icons.volume_off : Icons.volume_up,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
